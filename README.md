@@ -81,6 +81,10 @@ MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
 
+### v1.4.0
+- Risolto definitivamente il flusso del veicolo elettrico che non veniva disegnato: i tracciati SVG erano generati nel namespace HTML e quindi ignorati dal browser.
+- Etichette di rete e fotovoltaico allineate alla stessa altezza (layout simmetrico).
+
 ### v1.3.0
 - Corretta la sovrapposizione verticale dei nodi su schermi stretti: maggiore distanza tra le icone e SVG allineato ai nodi.
 - Corretto il tracciato del flusso veicolo elettrico che non compariva pur con potenza maggiore di zero.

@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.3.0";
+const CARD_VERSION = "1.4.0";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -137,13 +137,16 @@ class EnergyFlowCard extends LitElement {
     const evPathD = "M 40 105 C 80 105, 130 92, 166 82";
 
     const gridLabelX = 100;
-    const gridLabelY = evOn ? 30 : 62;
+    const gridLabelY = evOn ? 25 : 62;
 
     const th = 0.02;
     const solarOpacity = Math.abs(solar) < th ? 0 : 1;
     const gridOpacity = Math.abs(grid) < th ? 0 : 1;
     const battOpacity = Math.abs(batt) < th ? 0 : 1;
-    const evOpacity = Math.abs(evP) < th ? 0 : 1;
+    // I path EV restano sempre nel markup SVG (per evitare problemi di
+    // namespace con i sotto-template innestati) e vengono nascosti via opacita'.
+    const evTrackOpacity = evOn ? 1 : 0;
+    const evOpacity = evOn && Math.abs(evP) >= th ? 1 : 0;
 
     return html`
       <ha-card>
@@ -156,9 +159,7 @@ class EnergyFlowCard extends LitElement {
             <path d="${gridPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
             <path d="${solarPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
             <path d="${battPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-            ${evOn
-              ? html`<path d="${evPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>`
-              : ""}
+            <path d="${evPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round" style="opacity:${evTrackOpacity};"></path>
 
             <!-- flussi animati -->
             <path
@@ -194,19 +195,17 @@ class EnergyFlowCard extends LitElement {
                 batt
               )}s;animation-direction:${battDir};"
             ></path>
-            ${evOn
-              ? html`<path
-                  d="${evPathD}"
-                  fill="none"
-                  stroke="#c084fc"
-                  stroke-width="7"
-                  stroke-linecap="round"
-                  stroke-dasharray="6 14"
-                  style="opacity:${evOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
-                    evP
-                  )}s;animation-direction:${evDir};"
-                ></path>`
-              : ""}
+            <path
+              d="${evPathD}"
+              fill="none"
+              stroke="#c084fc"
+              stroke-width="7"
+              stroke-linecap="round"
+              stroke-dasharray="6 14"
+              style="opacity:${evOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                evP
+              )}s;animation-direction:${evDir};"
+            ></path>
           </svg>
 
           <!-- nodo rete -->
@@ -269,7 +268,7 @@ class EnergyFlowCard extends LitElement {
                   </svg>
                 </div>
                 <div class="label" style="left:${this._px(100)}%;top:${this._py(
-                  130
+                  125
                 )}%;color:#c084fc;">
                   ${this._fmt(Math.abs(evP))}
                 </div>
@@ -283,12 +282,12 @@ class EnergyFlowCard extends LitElement {
             ${this._fmt(grid)}
           </div>
           <div class="label" style="left:${this._px(290)}%;top:${this._py(
-            20
+            25
           )}%;color:#f5a623;">
             ${this._fmt(solar)}
           </div>
           <div class="label" style="left:${this._px(290)}%;top:${this._py(
-            130
+            125
           )}%;color:#4cd07d;">
             ${this._fmt(batt)}
           </div>
