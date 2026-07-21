@@ -14,13 +14,17 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.1.0";
+const CARD_VERSION = "1.2.0";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
   "color: #eef0f4; background: #1a1d24; font-weight: 700;",
   "color: #1a1d24; background: #4cd07d; font-weight: 700;"
 );
+
+// Geometria di riferimento (coordinate SVG); l'intero stage scala su queste.
+const VW = 380;
+const VH = 120;
 
 class EnergyFlowCard extends LitElement {
   static get properties() {
@@ -50,9 +54,6 @@ class EnergyFlowCard extends LitElement {
     this._config = {
       title: "",
       ev_enabled: false,
-      // Divisore globale di default. I valori delle entita' vengono divisi
-      // per questo per ottenere kW (1 = kW, 1000 = W). Puo' essere
-      // sovrascritto per singola entita' con i campi *_power_divider.
       power_divider: 1,
       ...config,
     };
@@ -62,7 +63,6 @@ class EnergyFlowCard extends LitElement {
     return 2;
   }
 
-  // Legge un valore numerico dall'entita'
   _num(entityId, fallback = 0) {
     if (!entityId || !this.hass) return fallback;
     const st = this.hass.states[entityId];
@@ -71,7 +71,6 @@ class EnergyFlowCard extends LitElement {
     return Number.isFinite(v) ? v : fallback;
   }
 
-  // Divisore per una specifica sorgente, con fallback su quello globale
   _div(key) {
     const per = this._config[key + "_power_divider"];
     const n = Number(per);
@@ -93,6 +92,14 @@ class EnergyFlowCard extends LitElement {
     return Math.max(0.4, Math.min(3.5, 4 / (Math.abs(power) + 0.5)));
   }
 
+  // Converte coordinate SVG (0..VW / 0..VH) in percentuali per il posizionamento
+  _px(x) {
+    return (x / VW) * 100;
+  }
+  _py(y) {
+    return (y / VH) * 100;
+  }
+
   render() {
     if (!this._config || !this.hass) return html``;
 
@@ -108,11 +115,6 @@ class EnergyFlowCard extends LitElement {
     const battDir = batt >= 0 ? "normal" : "reverse";
     const evDir = evP >= 0 ? "reverse" : "normal";
 
-    const anyFlow =
-      Math.abs(solar) > 0.02 ||
-      Math.abs(grid) > 0.02 ||
-      Math.abs(batt) > 0.02;
-
     const homeVal =
       Math.abs(solar) +
       Math.abs(grid >= 0 ? grid : 0) +
@@ -122,24 +124,18 @@ class EnergyFlowCard extends LitElement {
       soc < 20 ? "#ef4444" : soc < 80 ? "#f5a623" : "#4cd07d";
     const battFillWidth = Math.max(1, Math.round((soc / 100) * 13));
 
-    // --- Geometria (nodi spostati verso l'esterno) ---
-    // viewBox 380 di larghezza. Casa al centro (190).
-    // Rete/EV a sinistra (x=28), Solare/Batteria a destra (x=352).
-    const gridY = evOn ? 32 : 60;
+    // Posizioni nodi (coordinate SVG). Rete/EV a sinistra, Solare/Batteria a destra.
+    const gridNodeY = evOn ? 40 : 60;
 
-    // Path rete -> casa
     const gridPathD = evOn
       ? "M 40 40 C 70 38, 130 46, 168 56"
-      : "M 52 60 L 166 60";
-    // Path solare -> casa (dall'alto destra)
+      : "M 40 60 L 168 60";
     const solarPathD = "M 340 40 C 310 38, 250 46, 212 56";
-    // Path batteria -> casa (dal basso destra)
     const battPathD = "M 340 80 C 310 82, 250 74, 212 64";
-    // Path EV -> casa (dal basso sinistra)
     const evPathD = "M 40 80 C 70 82, 130 74, 168 64";
 
-    const gridLabelLeft = evOn ? 96 : 100;
-    const gridLabelTop = evOn ? 22 : 47;
+    const gridLabelX = evOn ? 100 : 100;
+    const gridLabelY = evOn ? 26 : 48;
 
     const th = 0.02;
     const solarOpacity = Math.abs(solar) < th ? 0 : 1;
@@ -152,139 +148,155 @@ class EnergyFlowCard extends LitElement {
         ${this._config.title
           ? html`<div class="card-title">${this._config.title}</div>`
           : ""}
-        <div class="wrap">
-          <div class="stage">
-            <svg viewBox="0 0 380 120" class="flow-svg">
-              <!-- tracce di fondo -->
-              <path d="${gridPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-              <path d="${solarPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-              <path d="${battPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-              ${evOn
-                ? html`<path d="${evPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>`
-                : ""}
-
-              <!-- flussi animati -->
-              <path
-                d="${gridPathD}"
-                fill="none"
-                stroke="#5b8def"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-dasharray="6 14"
-                style="opacity:${gridOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
-                  grid
-                )}s;animation-direction:${gridDir};"
-              ></path>
-              <path
-                d="${solarPathD}"
-                fill="none"
-                stroke="#f5a623"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-dasharray="6 14"
-                style="opacity:${solarOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
-                  solar
-                )}s;animation-direction:${solarDir};"
-              ></path>
-              <path
-                d="${battPathD}"
-                fill="none"
-                stroke="#4cd07d"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-dasharray="6 14"
-                style="opacity:${battOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
-                  batt
-                )}s;animation-direction:${battDir};"
-              ></path>
-              ${evOn
-                ? html`<path
-                    d="${evPathD}"
-                    fill="none"
-                    stroke="#c084fc"
-                    stroke-width="7"
-                    stroke-linecap="round"
-                    stroke-dasharray="6 14"
-                    style="opacity:${evOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
-                      evP
-                    )}s;animation-direction:${evDir};"
-                  ></path>`
-                : ""}
-            </svg>
-
-            <!-- nodo rete -->
-            <div class="node" style="left:28px;top:${gridY}px;background:#182236;border-color:#5b8def;color:#5b8def;">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2 L17 9 L7 9 Z"></path>
-                <line x1="12" y1="9" x2="12" y2="22"></line>
-                <line x1="7" y1="22" x2="12" y2="9"></line>
-                <line x1="17" y1="22" x2="12" y2="9"></line>
-                <line x1="8" y1="14" x2="16" y2="14"></line>
-                <line x1="3" y1="5" x2="21" y2="5"></line>
-                <line x1="3" y1="5" x2="7" y2="9"></line>
-                <line x1="21" y1="5" x2="17" y2="9"></line>
-              </svg>
-            </div>
-
-            <!-- nodo solare -->
-            <div class="node" style="left:352px;top:32px;background:#2a2416;border-color:#f5a623;color:#f5a623;">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="5.5" r="2.3"></circle>
-                <line x1="12" y1="0.8" x2="12" y2="2.3"></line>
-                <line x1="6.8" y1="5.5" x2="8.3" y2="5.5"></line>
-                <line x1="15.7" y1="5.5" x2="17.2" y2="5.5"></line>
-                <line x1="8.3" y1="1.8" x2="9.2" y2="2.7"></line>
-                <line x1="15.7" y1="1.8" x2="14.8" y2="2.7"></line>
-                <rect x="4" y="12" width="16" height="8" rx="0.8"></rect>
-                <line x1="4" y1="16" x2="20" y2="16"></line>
-                <line x1="9.3" y1="12" x2="9.3" y2="20"></line>
-                <line x1="14.7" y1="12" x2="14.7" y2="20"></line>
-              </svg>
-            </div>
-
-            <!-- nodo batteria -->
-            <div class="node" style="left:352px;top:88px;background:#152819;border-color:#4cd07d;color:${battColor};">
-              <svg viewBox="0 0 24 24" width="29" height="29" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
-                <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
-                <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFillWidth}"></rect>
-              </svg>
-            </div>
-
-            <!-- nodo veicolo elettrico (opzionale) -->
+        <div class="stage">
+          <svg viewBox="0 0 ${VW} ${VH}" class="flow-svg" preserveAspectRatio="xMidYMid meet">
+            <!-- tracce di fondo -->
+            <path d="${gridPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
+            <path d="${solarPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
+            <path d="${battPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
             ${evOn
-              ? html`
-                  <div class="node" style="left:28px;top:88px;background:#221a2e;border-color:#c084fc;color:#c084fc;">
-                    <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="5" y="3" width="9" height="18" rx="1.5"></rect>
-                      <path d="M5 21 L14 21"></path>
-                      <rect x="7.5" y="6" width="4" height="4" rx="0.6"></rect>
-                      <path d="M14 8 L16.5 8 Q17.5 8 17.5 9 L17.5 13 Q17.5 14 18.5 14 Q19.5 14 19.5 13 L19.5 10"></path>
-                      <path d="M10.2 12.5 L8.6 15.5 L10 15.5 L9 18" stroke-width="1.3"></path>
-                    </svg>
-                  </div>
-                  <div class="label" style="left:88px;top:100px;color:#c084fc;">
-                    ${this._fmt(Math.abs(evP))}
-                  </div>
-                `
+              ? html`<path d="${evPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>`
               : ""}
 
-            <!-- etichette -->
-            <div class="label" style="left:${gridLabelLeft}px;top:${gridLabelTop}px;color:#5b8def;">
-              ${this._fmt(grid)}
-            </div>
-            <div class="label" style="left:290px;top:20px;color:#f5a623;">
-              ${this._fmt(solar)}
-            </div>
-            <div class="label" style="left:290px;top:100px;color:#4cd07d;">
-              ${this._fmt(batt)}
-            </div>
+            <!-- flussi animati -->
+            <path
+              d="${gridPathD}"
+              fill="none"
+              stroke="#5b8def"
+              stroke-width="7"
+              stroke-linecap="round"
+              stroke-dasharray="6 14"
+              style="opacity:${gridOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                grid
+              )}s;animation-direction:${gridDir};"
+            ></path>
+            <path
+              d="${solarPathD}"
+              fill="none"
+              stroke="#f5a623"
+              stroke-width="7"
+              stroke-linecap="round"
+              stroke-dasharray="6 14"
+              style="opacity:${solarOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                solar
+              )}s;animation-direction:${solarDir};"
+            ></path>
+            <path
+              d="${battPathD}"
+              fill="none"
+              stroke="#4cd07d"
+              stroke-width="7"
+              stroke-linecap="round"
+              stroke-dasharray="6 14"
+              style="opacity:${battOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                batt
+              )}s;animation-direction:${battDir};"
+            ></path>
+            ${evOn
+              ? html`<path
+                  d="${evPathD}"
+                  fill="none"
+                  stroke="#c084fc"
+                  stroke-width="7"
+                  stroke-linecap="round"
+                  stroke-dasharray="6 14"
+                  style="opacity:${evOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                    evP
+                  )}s;animation-direction:${evDir};"
+                ></path>`
+              : ""}
+          </svg>
 
-            <!-- nodo casa -->
-            <div class="home">
-              <div class="home-emoji">🏠</div>
-              <div class="home-val">${this._fmt(homeVal)}</div>
-            </div>
+          <!-- nodo rete -->
+          <div class="node" style="left:${this._px(40)}%;top:${this._py(
+            gridNodeY
+          )}%;background:#182236;border-color:#5b8def;color:#5b8def;">
+            <svg viewBox="0 0 24 24" class="ico" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2 L17 9 L7 9 Z"></path>
+              <line x1="12" y1="9" x2="12" y2="22"></line>
+              <line x1="7" y1="22" x2="12" y2="9"></line>
+              <line x1="17" y1="22" x2="12" y2="9"></line>
+              <line x1="8" y1="14" x2="16" y2="14"></line>
+              <line x1="3" y1="5" x2="21" y2="5"></line>
+              <line x1="3" y1="5" x2="7" y2="9"></line>
+              <line x1="21" y1="5" x2="17" y2="9"></line>
+            </svg>
+          </div>
+
+          <!-- nodo solare -->
+          <div class="node" style="left:${this._px(340)}%;top:${this._py(
+            40
+          )}%;background:#2a2416;border-color:#f5a623;color:#f5a623;">
+            <svg viewBox="0 0 24 24" class="ico" style="width:26px;height:26px;" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="5.5" r="2.3"></circle>
+              <line x1="12" y1="0.8" x2="12" y2="2.3"></line>
+              <line x1="6.8" y1="5.5" x2="8.3" y2="5.5"></line>
+              <line x1="15.7" y1="5.5" x2="17.2" y2="5.5"></line>
+              <line x1="8.3" y1="1.8" x2="9.2" y2="2.7"></line>
+              <line x1="15.7" y1="1.8" x2="14.8" y2="2.7"></line>
+              <rect x="4" y="12" width="16" height="8" rx="0.8"></rect>
+              <line x1="4" y1="16" x2="20" y2="16"></line>
+              <line x1="9.3" y1="12" x2="9.3" y2="20"></line>
+              <line x1="14.7" y1="12" x2="14.7" y2="20"></line>
+            </svg>
+          </div>
+
+          <!-- nodo batteria -->
+          <div class="node" style="left:${this._px(340)}%;top:${this._py(
+            80
+          )}%;background:#152819;border-color:#4cd07d;color:${battColor};">
+            <svg viewBox="0 0 24 24" class="ico" style="width:29px;height:29px;" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
+              <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
+              <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFillWidth}"></rect>
+            </svg>
+          </div>
+
+          <!-- nodo veicolo elettrico (opzionale) -->
+          ${evOn
+            ? html`
+                <div class="node" style="left:${this._px(40)}%;top:${this._py(
+                  80
+                )}%;background:#221a2e;border-color:#c084fc;color:#c084fc;">
+                  <svg viewBox="0 0 24 24" class="ico" style="width:30px;height:30px;" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="3" width="9" height="18" rx="1.5"></rect>
+                    <path d="M5 21 L14 21"></path>
+                    <rect x="7.5" y="6" width="4" height="4" rx="0.6"></rect>
+                    <path d="M14 8 L16.5 8 Q17.5 8 17.5 9 L17.5 13 Q17.5 14 18.5 14 Q19.5 14 19.5 13 L19.5 10"></path>
+                    <path d="M10.2 12.5 L8.6 15.5 L10 15.5 L9 18" stroke-width="1.3"></path>
+                  </svg>
+                </div>
+                <div class="label" style="left:${this._px(100)}%;top:${this._py(
+                  100
+                )}%;color:#c084fc;">
+                  ${this._fmt(Math.abs(evP))}
+                </div>
+              `
+            : ""}
+
+          <!-- etichette -->
+          <div class="label" style="left:${this._px(
+            gridLabelX
+          )}%;top:${this._py(gridLabelY)}%;color:#5b8def;">
+            ${this._fmt(grid)}
+          </div>
+          <div class="label" style="left:${this._px(290)}%;top:${this._py(
+            18
+          )}%;color:#f5a623;">
+            ${this._fmt(solar)}
+          </div>
+          <div class="label" style="left:${this._px(290)}%;top:${this._py(
+            102
+          )}%;color:#4cd07d;">
+            ${this._fmt(batt)}
+          </div>
+
+          <!-- nodo casa -->
+          <div class="home" style="left:${this._px(190)}%;top:${this._py(
+            60
+          )}%;">
+            <div class="home-emoji">🏠</div>
+            <div class="home-val">${this._fmt(homeVal)}</div>
           </div>
         </div>
       </ha-card>
@@ -307,20 +319,20 @@ class EnergyFlowCard extends LitElement {
         margin-bottom: 10px;
         color: #eef0f4;
       }
-      .wrap {
-        display: flex;
-        justify-content: center;
-      }
+      /* Lo stage mantiene le proporzioni ma scala con la larghezza
+         disponibile: cosi' i nodi restano allineati su qualsiasi schermo. */
       .stage {
         position: relative;
-        width: 380px;
-        height: 120px;
+        width: 100%;
+        max-width: 380px;
+        margin: 0 auto;
+        aspect-ratio: 380 / 120;
       }
       .flow-svg {
         position: absolute;
         inset: 0;
-        width: 380px;
-        height: 120px;
+        width: 100%;
+        height: 100%;
         overflow: visible;
       }
       .node {
@@ -333,6 +345,11 @@ class EnergyFlowCard extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
+        box-sizing: border-box;
+      }
+      .ico {
+        width: 24px;
+        height: 24px;
       }
       .label {
         position: absolute;
@@ -346,8 +363,6 @@ class EnergyFlowCard extends LitElement {
       }
       .home {
         position: absolute;
-        left: 190px;
-        top: 60px;
         transform: translate(-50%, -50%);
         display: flex;
         flex-direction: column;

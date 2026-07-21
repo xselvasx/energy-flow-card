@@ -81,6 +81,10 @@ MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
 
+### v1.2.0
+- Layout completamente responsive: lo stage scala mantenendo le proporzioni, i nodi restano centrati e allineati anche su mobile.
+- Traccia del ramo veicolo elettrico sempre allineata al nodo.
+
 ### v1.1.0
 - Nodi (rete, EV, solare, batteria) spostati più verso l'esterno per una migliore leggibilità.
 - Divisore di potenza configurabile per singola entità (`grid_power_divider`, `solar_power_divider`, `battery_power_divider`, `ev_power_divider`), con fallback sul divisore globale.
