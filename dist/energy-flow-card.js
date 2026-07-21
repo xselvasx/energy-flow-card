@@ -542,5 +542,5 @@ window.customCards.push({
   description:
     "Card animata del flusso energetico tra rete, fotovoltaico, batteria, casa e veicolo elettrico.",
   preview: true,
-  documentationURL: "https://github.com/GianlucaCP/energy-flow-card",
+  documentationURL: "https://github.com/xselvasx/energy-flow-card",
 });
