@@ -1,0 +1,494 @@
+/**
+ * Energy Flow Card
+ * Custom Lovelace card per Home Assistant che visualizza il flusso energetico
+ * tra rete, fotovoltaico, batteria, casa e (opzionale) veicolo elettrico.
+ *
+ * @license MIT
+ */
+
+const LitElement = Object.getPrototypeOf(
+  customElements.get("ha-panel-lovelace") ||
+    customElements.get("hui-view") ||
+    customElements.get("home-assistant-main")
+);
+const html = LitElement.prototype.html;
+const css = LitElement.prototype.css;
+
+const CARD_VERSION = "1.0.0";
+
+console.info(
+  `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
+  "color: #eef0f4; background: #1a1d24; font-weight: 700;",
+  "color: #1a1d24; background: #4cd07d; font-weight: 700;"
+);
+
+class EnergyFlowCard extends LitElement {
+  static get properties() {
+    return {
+      hass: { attribute: false },
+      _config: { state: true },
+    };
+  }
+
+  static getConfigElement() {
+    return document.createElement("energy-flow-card-editor");
+  }
+
+  static getStubConfig() {
+    return {
+      ev_enabled: false,
+      solar_power_entity: "",
+      grid_power_entity: "",
+      battery_power_entity: "",
+      battery_soc_entity: "",
+      ev_power_entity: "",
+    };
+  }
+
+  setConfig(config) {
+    if (!config) throw new Error("Configurazione non valida");
+    this._config = {
+      title: "",
+      ev_enabled: false,
+      // Fattore di scala: i valori delle entità vengono divisi per questo
+      // per ottenere kW. Se le entità sono già in kW lasciare 1.
+      power_divider: 1,
+      ...config,
+    };
+  }
+
+  getCardSize() {
+    return 2;
+  }
+
+  // --- helper per leggere valori numerici dalle entità ---
+  _num(entityId, fallback = 0) {
+    if (!entityId || !this.hass) return fallback;
+    const st = this.hass.states[entityId];
+    if (!st) return fallback;
+    const v = parseFloat(st.state);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  _fmt(kw) {
+    const abs = Math.abs(kw);
+    return (kw < 0 ? "-" : "") + abs.toFixed(1) + " kW";
+  }
+
+  _dur(power) {
+    return Math.max(0.4, Math.min(3.5, 4 / (Math.abs(power) + 0.5)));
+  }
+
+  render() {
+    if (!this._config || !this.hass) return html``;
+
+    const div = this._config.power_divider || 1;
+    const solar = this._num(this._config.solar_power_entity) / div;
+    const grid = this._num(this._config.grid_power_entity) / div;
+    const batt = this._num(this._config.battery_power_entity) / div;
+    const soc = this._num(this._config.battery_soc_entity, 0);
+    const evOn = !!this._config.ev_enabled;
+    const evP = this._num(this._config.ev_power_entity) / div;
+
+    const solarDir = solar >= 0 ? "normal" : "reverse";
+    const gridDir = grid >= 0 ? "normal" : "reverse";
+    const battDir = batt >= 0 ? "normal" : "reverse";
+    const evDir = evP >= 0 ? "reverse" : "normal";
+
+    const anyFlow =
+      Math.abs(solar) > 0.02 ||
+      Math.abs(grid) > 0.02 ||
+      Math.abs(batt) > 0.02;
+
+    const homeVal =
+      Math.abs(solar) +
+      Math.abs(grid >= 0 ? grid : 0) +
+      Math.abs(batt >= 0 ? batt : 0);
+
+    const battColor =
+      soc < 20 ? "#ef4444" : soc < 80 ? "#f5a623" : "#4cd07d";
+    const battFillWidth = Math.max(1, Math.round((soc / 100) * 13));
+
+    const gridY = evOn ? 32 : 60;
+    const gridPathD = evOn
+      ? "M 71.36 37.24 C 90 36, 115 45, 138.75 53.81"
+      : "M 72 60 L 138 60";
+    const gridLabelLeft = evOn ? 102 : 101;
+    const gridLabelTop = evOn ? 20 : 47;
+
+    const solarOpacity = Math.abs(solar) < 0.02 ? 0 : 1;
+    const gridOpacity = Math.abs(grid) < 0.02 ? 0 : 1;
+    const battOpacity = Math.abs(batt) < 0.02 ? 0 : 1;
+    const evOpacity = evOn && Math.abs(evP) > 0.02 ? 1 : 0;
+
+    return html`
+      <ha-card>
+        ${this._config.title
+          ? html`<div class="card-title">${this._config.title}</div>`
+          : ""}
+        <div class="wrap">
+          <div class="stage">
+            <svg viewBox="0 0 328 120" class="flow-svg">
+              <!-- tracce di fondo -->
+              <path
+                d="${gridPathD}"
+                fill="none"
+                stroke="#2c313d"
+                stroke-width="7"
+                stroke-linecap="round"
+              ></path>
+              <path
+                d="M 256.64 37.24 C 235 36, 205 45, 189.25 53.81"
+                fill="none"
+                stroke="#2c313d"
+                stroke-width="7"
+                stroke-linecap="round"
+              ></path>
+              <path
+                d="M 256.64 82.76 C 235 84, 205 75, 189.25 66.19"
+                fill="none"
+                stroke="#2c313d"
+                stroke-width="7"
+                stroke-linecap="round"
+              ></path>
+              ${evOn
+                ? html`<path
+                    d="M 71.36 82.76 C 90 84, 115 75, 138.75 66.19"
+                    fill="none"
+                    stroke="#2c313d"
+                    stroke-width="7"
+                    stroke-linecap="round"
+                  ></path>`
+                : ""}
+
+              <!-- flussi animati -->
+              <path
+                d="${gridPathD}"
+                fill="none"
+                stroke="#5b8def"
+                stroke-width="7"
+                stroke-linecap="round"
+                stroke-dasharray="6 14"
+                style="opacity:${gridOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                  grid
+                )}s;animation-direction:${gridDir};"
+              ></path>
+              <path
+                d="M 256.64 37.24 C 235 36, 205 45, 189.25 53.81"
+                fill="none"
+                stroke="#f5a623"
+                stroke-width="7"
+                stroke-linecap="round"
+                stroke-dasharray="6 14"
+                style="opacity:${solarOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                  solar
+                )}s;animation-direction:${solarDir};"
+              ></path>
+              <path
+                d="M 256.64 82.76 C 235 84, 205 75, 189.25 66.19"
+                fill="none"
+                stroke="#4cd07d"
+                stroke-width="7"
+                stroke-linecap="round"
+                stroke-dasharray="6 14"
+                style="opacity:${battOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                  batt
+                )}s;animation-direction:${battDir};"
+              ></path>
+              ${evOn
+                ? html`<path
+                    d="M 71.36 82.76 C 90 84, 115 75, 138.75 66.19"
+                    fill="none"
+                    stroke="#c084fc"
+                    stroke-width="7"
+                    stroke-linecap="round"
+                    stroke-dasharray="6 14"
+                    style="opacity:${evOpacity};animation:eflow 1s linear infinite;animation-duration:${this._dur(
+                      evP
+                    )}s;animation-direction:${evDir};"
+                  ></path>`
+                : ""}
+            </svg>
+
+            <!-- nodo rete -->
+            <div class="node" style="left:50px;top:${gridY}px;background:#182236;border-color:#5b8def;color:#5b8def;">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2 L17 9 L7 9 Z"></path>
+                <line x1="12" y1="9" x2="12" y2="22"></line>
+                <line x1="7" y1="22" x2="12" y2="9"></line>
+                <line x1="17" y1="22" x2="12" y2="9"></line>
+                <line x1="8" y1="14" x2="16" y2="14"></line>
+                <line x1="3" y1="5" x2="21" y2="5"></line>
+                <line x1="3" y1="5" x2="7" y2="9"></line>
+                <line x1="21" y1="5" x2="17" y2="9"></line>
+              </svg>
+            </div>
+
+            <!-- nodo solare -->
+            <div class="node" style="left:278px;top:32px;background:#2a2416;border-color:#f5a623;color:#f5a623;">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="5.5" r="2.3"></circle>
+                <line x1="12" y1="0.8" x2="12" y2="2.3"></line>
+                <line x1="6.8" y1="5.5" x2="8.3" y2="5.5"></line>
+                <line x1="15.7" y1="5.5" x2="17.2" y2="5.5"></line>
+                <line x1="8.3" y1="1.8" x2="9.2" y2="2.7"></line>
+                <line x1="15.7" y1="1.8" x2="14.8" y2="2.7"></line>
+                <rect x="4" y="12" width="16" height="8" rx="0.8"></rect>
+                <line x1="4" y1="16" x2="20" y2="16"></line>
+                <line x1="9.3" y1="12" x2="9.3" y2="20"></line>
+                <line x1="14.7" y1="12" x2="14.7" y2="20"></line>
+              </svg>
+            </div>
+
+            <!-- nodo batteria -->
+            <div class="node" style="left:278px;top:88px;background:#152819;border-color:#4cd07d;color:${battColor};">
+              <svg viewBox="0 0 24 24" width="29" height="29" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
+                <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
+                <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFillWidth}"></rect>
+              </svg>
+            </div>
+
+            <!-- nodo veicolo elettrico (opzionale) -->
+            ${evOn
+              ? html`
+                  <div class="node" style="left:50px;top:88px;background:#221a2e;border-color:#c084fc;color:#c084fc;">
+                    <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="5" y="3" width="9" height="18" rx="1.5"></rect>
+                      <path d="M5 21 L14 21"></path>
+                      <rect x="7.5" y="6" width="4" height="4" rx="0.6"></rect>
+                      <path d="M14 8 L16.5 8 Q17.5 8 17.5 9 L17.5 13 Q17.5 14 18.5 14 Q19.5 14 19.5 13 L19.5 10"></path>
+                      <path d="M10.2 12.5 L8.6 15.5 L10 15.5 L9 18" stroke-width="1.3"></path>
+                    </svg>
+                  </div>
+                  <div class="label" style="left:102px;top:100px;color:#c084fc;">
+                    ${this._fmt(Math.abs(evP))}
+                  </div>
+                `
+              : ""}
+
+            <!-- etichette -->
+            <div class="label" style="left:${gridLabelLeft}px;top:${gridLabelTop}px;color:#5b8def;">
+              ${this._fmt(grid)}
+            </div>
+            <div class="label" style="left:226px;top:20px;color:#f5a623;">
+              ${this._fmt(solar)}
+            </div>
+            <div class="label" style="left:226px;top:100px;color:#4cd07d;">
+              ${this._fmt(batt)}
+            </div>
+
+            <!-- nodo casa -->
+            <div class="home">
+              <div class="home-emoji">🏠</div>
+              <div class="home-val">${this._fmt(homeVal)}</div>
+            </div>
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  static get styles() {
+    return css`
+      ha-card {
+        background: #1a1d24;
+        border-radius: 18px;
+        padding: 16px;
+        box-sizing: border-box;
+        color: #eef0f4;
+        overflow: hidden;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        color: #eef0f4;
+      }
+      .wrap {
+        display: flex;
+        justify-content: center;
+      }
+      .stage {
+        position: relative;
+        width: 328px;
+        height: 120px;
+      }
+      .flow-svg {
+        position: absolute;
+        inset: 0;
+        width: 328px;
+        height: 120px;
+        overflow: visible;
+      }
+      .node {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 2px solid;
+        border-style: solid;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .label {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        background: #1a1d24;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .home {
+        position: absolute;
+        left: 164px;
+        top: 60px;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        background: #22262e;
+        border-radius: 50%;
+        width: 52px;
+        height: 52px;
+        justify-content: center;
+        box-shadow: 0 0 0 4px #1a1d24, 0 0 0 5px #3a3f4a;
+      }
+      .home-emoji {
+        font-size: 13px;
+      }
+      .home-val {
+        font-size: 11px;
+        font-weight: 800;
+        color: #fff;
+      }
+      @keyframes eflow {
+        to {
+          stroke-dashoffset: -20;
+        }
+      }
+    `;
+  }
+}
+
+customElements.define("energy-flow-card", EnergyFlowCard);
+
+/* ------------------------------------------------------------------ */
+/* Editor grafico della configurazione                                 */
+/* ------------------------------------------------------------------ */
+
+class EnergyFlowCardEditor extends LitElement {
+  static get properties() {
+    return {
+      hass: { attribute: false },
+      _config: { state: true },
+    };
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+  }
+
+  _fireChanged(config) {
+    const ev = new CustomEvent("config-changed", {
+      detail: { config },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(ev);
+  }
+
+  _valueChanged(field, value) {
+    const config = { ...this._config, [field]: value };
+    this._config = config;
+    this._fireChanged(config);
+  }
+
+  _entityPicker(label, field) {
+    return html`
+      <ha-entity-picker
+        .hass=${this.hass}
+        .value=${this._config[field] || ""}
+        .label=${label}
+        allow-custom-entity
+        @value-changed=${(e) => this._valueChanged(field, e.detail.value)}
+      ></ha-entity-picker>
+    `;
+  }
+
+  render() {
+    if (!this._config || !this.hass) return html``;
+    return html`
+      <div class="editor">
+        <ha-textfield
+          label="Titolo (opzionale)"
+          .value=${this._config.title || ""}
+          @input=${(e) => this._valueChanged("title", e.target.value)}
+        ></ha-textfield>
+
+        <div class="section">Flussi energia</div>
+        ${this._entityPicker("Potenza rete (grid) — kW/W", "grid_power_entity")}
+        ${this._entityPicker("Potenza fotovoltaico (solar)", "solar_power_entity")}
+        ${this._entityPicker("Potenza batteria", "battery_power_entity")}
+        ${this._entityPicker("Stato di carica batteria (%)", "battery_soc_entity")}
+
+        <ha-textfield
+          label="Divisore potenza (1 se le entità sono in kW, 1000 se in W)"
+          type="number"
+          .value=${this._config.power_divider ?? 1}
+          @input=${(e) =>
+            this._valueChanged("power_divider", Number(e.target.value) || 1)}
+        ></ha-textfield>
+
+        <div class="section">Veicolo elettrico</div>
+        <ha-formfield label="Mostra veicolo elettrico">
+          <ha-switch
+            .checked=${!!this._config.ev_enabled}
+            @change=${(e) => this._valueChanged("ev_enabled", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        ${this._config.ev_enabled
+          ? this._entityPicker("Potenza ricarica veicolo", "ev_power_entity")
+          : ""}
+      </div>
+    `;
+  }
+
+  static get styles() {
+    return css`
+      .editor {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .section {
+        font-weight: 700;
+        margin-top: 8px;
+        color: var(--primary-text-color);
+      }
+      ha-textfield,
+      ha-entity-picker {
+        width: 100%;
+      }
+    `;
+  }
+}
+
+customElements.define("energy-flow-card-editor", EnergyFlowCardEditor);
+
+window.customCards = window.customCards || [];
+window.customCards.push({
+  type: "energy-flow-card",
+  name: "Energy Flow Card",
+  description:
+    "Card animata del flusso energetico tra rete, fotovoltaico, batteria, casa e veicolo elettrico.",
+  preview: true,
+  documentationURL:
+    "https://github.com/GianlucaCP/energy-flow-card",
+});
