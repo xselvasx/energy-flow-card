@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.0.0";
+const CARD_VERSION = "1.1.0";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -50,8 +50,9 @@ class EnergyFlowCard extends LitElement {
     this._config = {
       title: "",
       ev_enabled: false,
-      // Fattore di scala: i valori delle entità vengono divisi per questo
-      // per ottenere kW. Se le entità sono già in kW lasciare 1.
+      // Divisore globale di default. I valori delle entita' vengono divisi
+      // per questo per ottenere kW (1 = kW, 1000 = W). Puo' essere
+      // sovrascritto per singola entita' con i campi *_power_divider.
       power_divider: 1,
       ...config,
     };
@@ -61,13 +62,26 @@ class EnergyFlowCard extends LitElement {
     return 2;
   }
 
-  // --- helper per leggere valori numerici dalle entità ---
+  // Legge un valore numerico dall'entita'
   _num(entityId, fallback = 0) {
     if (!entityId || !this.hass) return fallback;
     const st = this.hass.states[entityId];
     if (!st) return fallback;
     const v = parseFloat(st.state);
     return Number.isFinite(v) ? v : fallback;
+  }
+
+  // Divisore per una specifica sorgente, con fallback su quello globale
+  _div(key) {
+    const per = this._config[key + "_power_divider"];
+    const n = Number(per);
+    if (Number.isFinite(n) && n !== 0) return n;
+    const g = Number(this._config.power_divider);
+    return Number.isFinite(g) && g !== 0 ? g : 1;
+  }
+
+  _power(entityKey, divKey) {
+    return this._num(this._config[entityKey]) / this._div(divKey);
   }
 
   _fmt(kw) {
@@ -82,13 +96,12 @@ class EnergyFlowCard extends LitElement {
   render() {
     if (!this._config || !this.hass) return html``;
 
-    const div = this._config.power_divider || 1;
-    const solar = this._num(this._config.solar_power_entity) / div;
-    const grid = this._num(this._config.grid_power_entity) / div;
-    const batt = this._num(this._config.battery_power_entity) / div;
+    const solar = this._power("solar_power_entity", "solar");
+    const grid = this._power("grid_power_entity", "grid");
+    const batt = this._power("battery_power_entity", "battery");
     const soc = this._num(this._config.battery_soc_entity, 0);
     const evOn = !!this._config.ev_enabled;
-    const evP = this._num(this._config.ev_power_entity) / div;
+    const evP = this._power("ev_power_entity", "ev");
 
     const solarDir = solar >= 0 ? "normal" : "reverse";
     const gridDir = grid >= 0 ? "normal" : "reverse";
@@ -109,17 +122,30 @@ class EnergyFlowCard extends LitElement {
       soc < 20 ? "#ef4444" : soc < 80 ? "#f5a623" : "#4cd07d";
     const battFillWidth = Math.max(1, Math.round((soc / 100) * 13));
 
+    // --- Geometria (nodi spostati verso l'esterno) ---
+    // viewBox 380 di larghezza. Casa al centro (190).
+    // Rete/EV a sinistra (x=28), Solare/Batteria a destra (x=352).
     const gridY = evOn ? 32 : 60;
-    const gridPathD = evOn
-      ? "M 71.36 37.24 C 90 36, 115 45, 138.75 53.81"
-      : "M 72 60 L 138 60";
-    const gridLabelLeft = evOn ? 102 : 101;
-    const gridLabelTop = evOn ? 20 : 47;
 
-    const solarOpacity = Math.abs(solar) < 0.02 ? 0 : 1;
-    const gridOpacity = Math.abs(grid) < 0.02 ? 0 : 1;
-    const battOpacity = Math.abs(batt) < 0.02 ? 0 : 1;
-    const evOpacity = evOn && Math.abs(evP) > 0.02 ? 1 : 0;
+    // Path rete -> casa
+    const gridPathD = evOn
+      ? "M 40 40 C 70 38, 130 46, 168 56"
+      : "M 52 60 L 166 60";
+    // Path solare -> casa (dall'alto destra)
+    const solarPathD = "M 340 40 C 310 38, 250 46, 212 56";
+    // Path batteria -> casa (dal basso destra)
+    const battPathD = "M 340 80 C 310 82, 250 74, 212 64";
+    // Path EV -> casa (dal basso sinistra)
+    const evPathD = "M 40 80 C 70 82, 130 74, 168 64";
+
+    const gridLabelLeft = evOn ? 96 : 100;
+    const gridLabelTop = evOn ? 22 : 47;
+
+    const th = 0.02;
+    const solarOpacity = Math.abs(solar) < th ? 0 : 1;
+    const gridOpacity = Math.abs(grid) < th ? 0 : 1;
+    const battOpacity = Math.abs(batt) < th ? 0 : 1;
+    const evOpacity = Math.abs(evP) < th ? 0 : 1;
 
     return html`
       <ha-card>
@@ -128,37 +154,13 @@ class EnergyFlowCard extends LitElement {
           : ""}
         <div class="wrap">
           <div class="stage">
-            <svg viewBox="0 0 328 120" class="flow-svg">
+            <svg viewBox="0 0 380 120" class="flow-svg">
               <!-- tracce di fondo -->
-              <path
-                d="${gridPathD}"
-                fill="none"
-                stroke="#2c313d"
-                stroke-width="7"
-                stroke-linecap="round"
-              ></path>
-              <path
-                d="M 256.64 37.24 C 235 36, 205 45, 189.25 53.81"
-                fill="none"
-                stroke="#2c313d"
-                stroke-width="7"
-                stroke-linecap="round"
-              ></path>
-              <path
-                d="M 256.64 82.76 C 235 84, 205 75, 189.25 66.19"
-                fill="none"
-                stroke="#2c313d"
-                stroke-width="7"
-                stroke-linecap="round"
-              ></path>
+              <path d="${gridPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
+              <path d="${solarPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
+              <path d="${battPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
               ${evOn
-                ? html`<path
-                    d="M 71.36 82.76 C 90 84, 115 75, 138.75 66.19"
-                    fill="none"
-                    stroke="#2c313d"
-                    stroke-width="7"
-                    stroke-linecap="round"
-                  ></path>`
+                ? html`<path d="${evPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>`
                 : ""}
 
               <!-- flussi animati -->
@@ -174,7 +176,7 @@ class EnergyFlowCard extends LitElement {
                 )}s;animation-direction:${gridDir};"
               ></path>
               <path
-                d="M 256.64 37.24 C 235 36, 205 45, 189.25 53.81"
+                d="${solarPathD}"
                 fill="none"
                 stroke="#f5a623"
                 stroke-width="7"
@@ -185,7 +187,7 @@ class EnergyFlowCard extends LitElement {
                 )}s;animation-direction:${solarDir};"
               ></path>
               <path
-                d="M 256.64 82.76 C 235 84, 205 75, 189.25 66.19"
+                d="${battPathD}"
                 fill="none"
                 stroke="#4cd07d"
                 stroke-width="7"
@@ -197,7 +199,7 @@ class EnergyFlowCard extends LitElement {
               ></path>
               ${evOn
                 ? html`<path
-                    d="M 71.36 82.76 C 90 84, 115 75, 138.75 66.19"
+                    d="${evPathD}"
                     fill="none"
                     stroke="#c084fc"
                     stroke-width="7"
@@ -211,7 +213,7 @@ class EnergyFlowCard extends LitElement {
             </svg>
 
             <!-- nodo rete -->
-            <div class="node" style="left:50px;top:${gridY}px;background:#182236;border-color:#5b8def;color:#5b8def;">
+            <div class="node" style="left:28px;top:${gridY}px;background:#182236;border-color:#5b8def;color:#5b8def;">
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2 L17 9 L7 9 Z"></path>
                 <line x1="12" y1="9" x2="12" y2="22"></line>
@@ -225,7 +227,7 @@ class EnergyFlowCard extends LitElement {
             </div>
 
             <!-- nodo solare -->
-            <div class="node" style="left:278px;top:32px;background:#2a2416;border-color:#f5a623;color:#f5a623;">
+            <div class="node" style="left:352px;top:32px;background:#2a2416;border-color:#f5a623;color:#f5a623;">
               <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="5.5" r="2.3"></circle>
                 <line x1="12" y1="0.8" x2="12" y2="2.3"></line>
@@ -241,7 +243,7 @@ class EnergyFlowCard extends LitElement {
             </div>
 
             <!-- nodo batteria -->
-            <div class="node" style="left:278px;top:88px;background:#152819;border-color:#4cd07d;color:${battColor};">
+            <div class="node" style="left:352px;top:88px;background:#152819;border-color:#4cd07d;color:${battColor};">
               <svg viewBox="0 0 24 24" width="29" height="29" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
                 <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
@@ -252,7 +254,7 @@ class EnergyFlowCard extends LitElement {
             <!-- nodo veicolo elettrico (opzionale) -->
             ${evOn
               ? html`
-                  <div class="node" style="left:50px;top:88px;background:#221a2e;border-color:#c084fc;color:#c084fc;">
+                  <div class="node" style="left:28px;top:88px;background:#221a2e;border-color:#c084fc;color:#c084fc;">
                     <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="5" y="3" width="9" height="18" rx="1.5"></rect>
                       <path d="M5 21 L14 21"></path>
@@ -261,7 +263,7 @@ class EnergyFlowCard extends LitElement {
                       <path d="M10.2 12.5 L8.6 15.5 L10 15.5 L9 18" stroke-width="1.3"></path>
                     </svg>
                   </div>
-                  <div class="label" style="left:102px;top:100px;color:#c084fc;">
+                  <div class="label" style="left:88px;top:100px;color:#c084fc;">
                     ${this._fmt(Math.abs(evP))}
                   </div>
                 `
@@ -271,10 +273,10 @@ class EnergyFlowCard extends LitElement {
             <div class="label" style="left:${gridLabelLeft}px;top:${gridLabelTop}px;color:#5b8def;">
               ${this._fmt(grid)}
             </div>
-            <div class="label" style="left:226px;top:20px;color:#f5a623;">
+            <div class="label" style="left:290px;top:20px;color:#f5a623;">
               ${this._fmt(solar)}
             </div>
-            <div class="label" style="left:226px;top:100px;color:#4cd07d;">
+            <div class="label" style="left:290px;top:100px;color:#4cd07d;">
               ${this._fmt(batt)}
             </div>
 
@@ -311,13 +313,13 @@ class EnergyFlowCard extends LitElement {
       }
       .stage {
         position: relative;
-        width: 328px;
+        width: 380px;
         height: 120px;
       }
       .flow-svg {
         position: absolute;
         inset: 0;
-        width: 328px;
+        width: 380px;
         height: 120px;
         overflow: visible;
       }
@@ -328,7 +330,6 @@ class EnergyFlowCard extends LitElement {
         height: 44px;
         border-radius: 50%;
         border: 2px solid;
-        border-style: solid;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -345,7 +346,7 @@ class EnergyFlowCard extends LitElement {
       }
       .home {
         position: absolute;
-        left: 164px;
+        left: 190px;
         top: 60px;
         transform: translate(-50%, -50%);
         display: flex;
@@ -404,20 +405,40 @@ class EnergyFlowCardEditor extends LitElement {
   }
 
   _valueChanged(field, value) {
-    const config = { ...this._config, [field]: value };
+    const config = { ...this._config };
+    if (value === "" || value === undefined || value === null) {
+      delete config[field];
+    } else {
+      config[field] = value;
+    }
     this._config = config;
     this._fireChanged(config);
   }
 
-  _entityPicker(label, field) {
+  _entityRow(label, entityField, divField) {
     return html`
-      <ha-entity-picker
-        .hass=${this.hass}
-        .value=${this._config[field] || ""}
-        .label=${label}
-        allow-custom-entity
-        @value-changed=${(e) => this._valueChanged(field, e.detail.value)}
-      ></ha-entity-picker>
+      <div class="row">
+        <ha-entity-picker
+          .hass=${this.hass}
+          .value=${this._config[entityField] || ""}
+          .label=${label}
+          allow-custom-entity
+          @value-changed=${(e) =>
+            this._valueChanged(entityField, e.detail.value)}
+        ></ha-entity-picker>
+        <ha-textfield
+          class="divider"
+          label="Divisore"
+          type="number"
+          .value=${this._config[divField] ?? ""}
+          placeholder=${this._config.power_divider ?? 1}
+          @input=${(e) =>
+            this._valueChanged(
+              divField,
+              e.target.value === "" ? "" : Number(e.target.value)
+            )}
+        ></ha-textfield>
+      </div>
     `;
   }
 
@@ -431,19 +452,30 @@ class EnergyFlowCardEditor extends LitElement {
           @input=${(e) => this._valueChanged("title", e.target.value)}
         ></ha-textfield>
 
-        <div class="section">Flussi energia</div>
-        ${this._entityPicker("Potenza rete (grid) — kW/W", "grid_power_entity")}
-        ${this._entityPicker("Potenza fotovoltaico (solar)", "solar_power_entity")}
-        ${this._entityPicker("Potenza batteria", "battery_power_entity")}
-        ${this._entityPicker("Stato di carica batteria (%)", "battery_soc_entity")}
-
         <ha-textfield
-          label="Divisore potenza (1 se le entità sono in kW, 1000 se in W)"
+          label="Divisore potenza globale (1 = kW, 1000 = W)"
           type="number"
           .value=${this._config.power_divider ?? 1}
           @input=${(e) =>
             this._valueChanged("power_divider", Number(e.target.value) || 1)}
         ></ha-textfield>
+        <div class="hint">
+          Il divisore per singola entita' e' opzionale: se vuoto usa quello
+          globale.
+        </div>
+
+        <div class="section">Flussi energia</div>
+        ${this._entityRow("Potenza rete", "grid_power_entity", "grid_power_divider")}
+        ${this._entityRow("Potenza fotovoltaico", "solar_power_entity", "solar_power_divider")}
+        ${this._entityRow("Potenza batteria", "battery_power_entity", "battery_power_divider")}
+        <ha-entity-picker
+          .hass=${this.hass}
+          .value=${this._config.battery_soc_entity || ""}
+          .label=${"Stato di carica batteria (%)"}
+          allow-custom-entity
+          @value-changed=${(e) =>
+            this._valueChanged("battery_soc_entity", e.detail.value)}
+        ></ha-entity-picker>
 
         <div class="section">Veicolo elettrico</div>
         <ha-formfield label="Mostra veicolo elettrico">
@@ -453,7 +485,11 @@ class EnergyFlowCardEditor extends LitElement {
           ></ha-switch>
         </ha-formfield>
         ${this._config.ev_enabled
-          ? this._entityPicker("Potenza ricarica veicolo", "ev_power_entity")
+          ? this._entityRow(
+              "Potenza ricarica veicolo",
+              "ev_power_entity",
+              "ev_power_divider"
+            )
           : ""}
       </div>
     `;
@@ -472,6 +508,23 @@ class EnergyFlowCardEditor extends LitElement {
         margin-top: 8px;
         color: var(--primary-text-color);
       }
+      .hint {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: -6px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+      }
+      .row ha-entity-picker {
+        flex: 1;
+      }
+      .row .divider {
+        width: 96px;
+        flex: 0 0 auto;
+      }
       ha-textfield,
       ha-entity-picker {
         width: 100%;
@@ -489,6 +542,5 @@ window.customCards.push({
   description:
     "Card animata del flusso energetico tra rete, fotovoltaico, batteria, casa e veicolo elettrico.",
   preview: true,
-  documentationURL:
-    "https://github.com/xselvasx/energy-flow-card",
+  documentationURL: "https://github.com/GianlucaCP/energy-flow-card",
 });
