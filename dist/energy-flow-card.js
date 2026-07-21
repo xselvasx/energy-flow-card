@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.2.0";
+const CARD_VERSION = "1.3.0";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -24,7 +24,7 @@ console.info(
 
 // Geometria di riferimento (coordinate SVG); l'intero stage scala su queste.
 const VW = 380;
-const VH = 120;
+const VH = 150;
 
 class EnergyFlowCard extends LitElement {
   static get properties() {
@@ -124,18 +124,20 @@ class EnergyFlowCard extends LitElement {
       soc < 20 ? "#ef4444" : soc < 80 ? "#f5a623" : "#4cd07d";
     const battFillWidth = Math.max(1, Math.round((soc / 100) * 13));
 
-    // Posizioni nodi (coordinate SVG). Rete/EV a sinistra, Solare/Batteria a destra.
-    const gridNodeY = evOn ? 40 : 60;
+    // Posizioni nodi (coordinate SVG, VH=150). Casa al centro (190,75).
+    // Rete/EV a sinistra (x=40), Solare/Batteria a destra (x=340).
+    // Colonna alta a y=45, colonna bassa a y=105 -> 60px di distanza tra i centri.
+    const gridNodeY = evOn ? 45 : 75;
 
     const gridPathD = evOn
-      ? "M 40 40 C 70 38, 130 46, 168 56"
-      : "M 40 60 L 168 60";
-    const solarPathD = "M 340 40 C 310 38, 250 46, 212 56";
-    const battPathD = "M 340 80 C 310 82, 250 74, 212 64";
-    const evPathD = "M 40 80 C 70 82, 130 74, 168 64";
+      ? "M 40 45 C 80 45, 130 58, 166 68"
+      : "M 40 75 L 168 75";
+    const solarPathD = "M 340 45 C 300 45, 250 58, 214 68";
+    const battPathD = "M 340 105 C 300 105, 250 92, 214 82";
+    const evPathD = "M 40 105 C 80 105, 130 92, 166 82";
 
-    const gridLabelX = evOn ? 100 : 100;
-    const gridLabelY = evOn ? 26 : 48;
+    const gridLabelX = 100;
+    const gridLabelY = evOn ? 30 : 62;
 
     const th = 0.02;
     const solarOpacity = Math.abs(solar) < th ? 0 : 1;
@@ -149,7 +151,7 @@ class EnergyFlowCard extends LitElement {
           ? html`<div class="card-title">${this._config.title}</div>`
           : ""}
         <div class="stage">
-          <svg viewBox="0 0 ${VW} ${VH}" class="flow-svg" preserveAspectRatio="xMidYMid meet">
+          <svg viewBox="0 0 ${VW} ${VH}" class="flow-svg" preserveAspectRatio="none">
             <!-- tracce di fondo -->
             <path d="${gridPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
             <path d="${solarPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
@@ -225,7 +227,7 @@ class EnergyFlowCard extends LitElement {
 
           <!-- nodo solare -->
           <div class="node" style="left:${this._px(340)}%;top:${this._py(
-            40
+            45
           )}%;background:#2a2416;border-color:#f5a623;color:#f5a623;">
             <svg viewBox="0 0 24 24" class="ico" style="width:26px;height:26px;" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="5.5" r="2.3"></circle>
@@ -243,7 +245,7 @@ class EnergyFlowCard extends LitElement {
 
           <!-- nodo batteria -->
           <div class="node" style="left:${this._px(340)}%;top:${this._py(
-            80
+            105
           )}%;background:#152819;border-color:#4cd07d;color:${battColor};">
             <svg viewBox="0 0 24 24" class="ico" style="width:29px;height:29px;" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
               <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
@@ -256,7 +258,7 @@ class EnergyFlowCard extends LitElement {
           ${evOn
             ? html`
                 <div class="node" style="left:${this._px(40)}%;top:${this._py(
-                  80
+                  105
                 )}%;background:#221a2e;border-color:#c084fc;color:#c084fc;">
                   <svg viewBox="0 0 24 24" class="ico" style="width:30px;height:30px;" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="5" y="3" width="9" height="18" rx="1.5"></rect>
@@ -267,7 +269,7 @@ class EnergyFlowCard extends LitElement {
                   </svg>
                 </div>
                 <div class="label" style="left:${this._px(100)}%;top:${this._py(
-                  100
+                  130
                 )}%;color:#c084fc;">
                   ${this._fmt(Math.abs(evP))}
                 </div>
@@ -281,19 +283,19 @@ class EnergyFlowCard extends LitElement {
             ${this._fmt(grid)}
           </div>
           <div class="label" style="left:${this._px(290)}%;top:${this._py(
-            18
+            20
           )}%;color:#f5a623;">
             ${this._fmt(solar)}
           </div>
           <div class="label" style="left:${this._px(290)}%;top:${this._py(
-            102
+            130
           )}%;color:#4cd07d;">
             ${this._fmt(batt)}
           </div>
 
           <!-- nodo casa -->
           <div class="home" style="left:${this._px(190)}%;top:${this._py(
-            60
+            75
           )}%;">
             <div class="home-emoji">🏠</div>
             <div class="home-val">${this._fmt(homeVal)}</div>
@@ -326,7 +328,7 @@ class EnergyFlowCard extends LitElement {
         width: 100%;
         max-width: 380px;
         margin: 0 auto;
-        aspect-ratio: 380 / 120;
+        aspect-ratio: 380 / 150;
       }
       .flow-svg {
         position: absolute;

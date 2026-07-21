@@ -81,6 +81,10 @@ MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
 
+### v1.3.0
+- Corretta la sovrapposizione verticale dei nodi su schermi stretti: maggiore distanza tra le icone e SVG allineato ai nodi.
+- Corretto il tracciato del flusso veicolo elettrico che non compariva pur con potenza maggiore di zero.
+
 ### v1.2.0
 - Layout completamente responsive: lo stage scala mantenendo le proporzioni, i nodi restano centrati e allineati anche su mobile.
 - Traccia del ramo veicolo elettrico sempre allineata al nodo.
