@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.4.0";
+const CARD_VERSION = "1.5.0";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -41,6 +41,7 @@ class EnergyFlowCard extends LitElement {
   static getStubConfig() {
     return {
       ev_enabled: false,
+      battery2_enabled: false,
       solar_power_entity: "",
       grid_power_entity: "",
       battery_power_entity: "",
@@ -54,6 +55,7 @@ class EnergyFlowCard extends LitElement {
     this._config = {
       title: "",
       ev_enabled: false,
+      battery2_enabled: false,
       power_divider: 1,
       ...config,
     };
@@ -105,8 +107,13 @@ class EnergyFlowCard extends LitElement {
 
     const solar = this._power("solar_power_entity", "solar");
     const grid = this._power("grid_power_entity", "grid");
-    const batt = this._power("battery_power_entity", "battery");
-    const soc = this._num(this._config.battery_soc_entity, 0);
+    const batt1 = this._power("battery_power_entity", "battery");
+    const soc1 = this._num(this._config.battery_soc_entity, 0);
+    const batt2On = !!this._config.battery2_enabled;
+    const batt2 = batt2On ? this._power("battery2_power_entity", "battery2") : 0;
+    const soc2 = this._num(this._config.battery2_soc_entity, 0);
+    // Potenza totale della sezione batteria: guida flusso, direzione e valore
+    const batt = batt1 + batt2;
     const evOn = !!this._config.ev_enabled;
     const evP = this._power("ev_power_entity", "ev");
 
@@ -120,9 +127,16 @@ class EnergyFlowCard extends LitElement {
       Math.abs(grid >= 0 ? grid : 0) +
       Math.abs(batt >= 0 ? batt : 0);
 
-    const battColor =
-      soc < 20 ? "#ef4444" : soc < 80 ? "#f5a623" : "#4cd07d";
-    const battFillWidth = Math.max(1, Math.round((soc / 100) * 13));
+    const socColor = (s) =>
+      s < 20 ? "#ef4444" : s < 80 ? "#f5a623" : "#4cd07d";
+    const battColor1 = socColor(soc1);
+    const battColor2 = socColor(soc2);
+    // Colore del bordo cerchio: media dei SoC quando c'e' la seconda batteria
+    const battBorderColor = batt2On
+      ? socColor((soc1 + soc2) / 2)
+      : battColor1;
+    const battFill = (s) => Math.max(1, Math.round((s / 100) * 13));
+    const battFillWidth = battFill(soc1);
 
     // Posizioni nodi (coordinate SVG, VH=150). Casa al centro (190,75).
     // Rete/EV a sinistra (x=40), Solare/Batteria a destra (x=340).
@@ -242,15 +256,36 @@ class EnergyFlowCard extends LitElement {
             </svg>
           </div>
 
-          <!-- nodo batteria -->
+          <!-- nodo batteria (una o due batterie) -->
           <div class="node" style="left:${this._px(340)}%;top:${this._py(
             105
-          )}%;background:#152819;border-color:#4cd07d;color:${battColor};">
-            <svg viewBox="0 0 24 24" class="ico" style="width:29px;height:29px;" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
-              <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
-              <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFillWidth}"></rect>
-            </svg>
+          )}%;background:#152819;border-color:${battBorderColor};color:${battColor1};">
+            ${batt2On
+              ? html`
+                  <div class="batt-stack">
+                    <svg viewBox="0 0 24 24" class="batt-ico-sm" style="color:${battColor1};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
+                      <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
+                      <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFill(
+                        soc1
+                      )}"></rect>
+                    </svg>
+                    <svg viewBox="0 0 24 24" class="batt-ico-sm" style="color:${battColor2};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
+                      <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
+                      <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFill(
+                        soc2
+                      )}"></rect>
+                    </svg>
+                  </div>
+                `
+              : html`
+                  <svg viewBox="0 0 24 24" class="ico" style="width:29px;height:29px;color:${battColor1};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
+                    <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
+                    <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFillWidth}"></rect>
+                  </svg>
+                `}
           </div>
 
           <!-- nodo veicolo elettrico (opzionale) -->
@@ -351,6 +386,18 @@ class EnergyFlowCard extends LitElement {
       .ico {
         width: 24px;
         height: 24px;
+      }
+      .batt-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
+        line-height: 0;
+      }
+      .batt-ico-sm {
+        width: 22px;
+        height: 22px;
       }
       .label {
         position: absolute;
@@ -483,15 +530,43 @@ class EnergyFlowCardEditor extends LitElement {
         <div class="section">Flussi energia</div>
         ${this._entityRow("Potenza rete", "grid_power_entity", "grid_power_divider")}
         ${this._entityRow("Potenza fotovoltaico", "solar_power_entity", "solar_power_divider")}
-        ${this._entityRow("Potenza batteria", "battery_power_entity", "battery_power_divider")}
+
+        <div class="section">Batteria 1</div>
+        ${this._entityRow("Potenza batteria 1", "battery_power_entity", "battery_power_divider")}
         <ha-entity-picker
           .hass=${this.hass}
           .value=${this._config.battery_soc_entity || ""}
-          .label=${"Stato di carica batteria (%)"}
+          .label=${"Stato di carica batteria 1 (%)"}
           allow-custom-entity
           @value-changed=${(e) =>
             this._valueChanged("battery_soc_entity", e.detail.value)}
         ></ha-entity-picker>
+
+        <div class="section">Batteria 2</div>
+        <ha-formfield label="Abilita seconda batteria">
+          <ha-switch
+            .checked=${!!this._config.battery2_enabled}
+            @change=${(e) =>
+              this._valueChanged("battery2_enabled", e.target.checked)}
+          ></ha-switch>
+        </ha-formfield>
+        ${this._config.battery2_enabled
+          ? html`
+              ${this._entityRow(
+                "Potenza batteria 2",
+                "battery2_power_entity",
+                "battery2_power_divider"
+              )}
+              <ha-entity-picker
+                .hass=${this.hass}
+                .value=${this._config.battery2_soc_entity || ""}
+                .label=${"Stato di carica batteria 2 (%)"}
+                allow-custom-entity
+                @value-changed=${(e) =>
+                  this._valueChanged("battery2_soc_entity", e.detail.value)}
+              ></ha-entity-picker>
+            `
+          : ""}
 
         <div class="section">Veicolo elettrico</div>
         <ha-formfield label="Mostra veicolo elettrico">

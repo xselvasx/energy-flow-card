@@ -42,6 +42,10 @@ La card ha un editor grafico integrato: aggiungila da **Aggiungi scheda → Pers
 | `solar_power_entity` | entity | — | Potenza prodotta dal fotovoltaico |
 | `battery_power_entity` | entity | — | Potenza batteria (positiva = scarica, negativa = carica) |
 | `battery_soc_entity` | entity | — | Stato di carica batteria in `%` |
+| `battery2_enabled` | boolean | `false` | Abilita la seconda batteria nello stesso nodo |
+| `battery2_power_entity` | entity | — | Potenza della seconda batteria (usata solo se `battery2_enabled: true`) |
+| `battery2_soc_entity` | entity | — | Stato di carica della seconda batteria in `%` |
+| `battery2_power_divider` | number | — | Divisore solo per la seconda batteria (opzionale) |
 | `ev_enabled` | boolean | `false` | Mostra il nodo veicolo elettrico |
 | `ev_power_entity` | entity | — | Potenza di ricarica del veicolo (usata solo se `ev_enabled: true`) |
 | `power_divider` | number | `1` | Divisore **globale**. Usa `1` se le entità sono in **kW**, `1000` se in **W** |
@@ -74,12 +78,18 @@ ev_power_entity: sensor.potenza_wallbox
 - **Fotovoltaico**: normalmente positivo.
 - Il valore **casa** viene calcolato automaticamente come somma dei contributi entranti.
 - Il colore della batteria cambia in base al SoC: rosso `<20%`, arancio `<80%`, verde `≥80%`.
+- Con la **seconda batteria** abilitata compaiono due icone impilate nello stesso cerchio, ciascuna colorata secondo il proprio SoC. Il valore di potenza mostrato e la direzione del flusso seguono la **somma** delle due potenze.
 
 ## Licenza
 
 MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
+
+### v1.5.0
+- Seconda batteria opzionale: abilitabile da selettore, con entita' di potenza e SoC dedicate e relativa scalatura.
+- Due icone impilate nel cerchio batteria, ciascuna colorata secondo il proprio stato di carica.
+- Il valore di potenza mostrato e il flusso seguono la somma delle potenze delle due batterie.
 
 ### v1.4.0
 - Risolto definitivamente il flusso del veicolo elettrico che non veniva disegnato: i tracciati SVG erano generati nel namespace HTML e quindi ignorati dal browser.
