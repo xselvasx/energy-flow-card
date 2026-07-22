@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.5.1";
+const CARD_VERSION = "1.6.0";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -170,10 +170,10 @@ class EnergyFlowCard extends LitElement {
         <div class="stage">
           <svg viewBox="0 0 ${VW} ${VH}" class="flow-svg" preserveAspectRatio="none">
             <!-- tracce di fondo -->
-            <path d="${gridPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-            <path d="${solarPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-            <path d="${battPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round"></path>
-            <path d="${evPathD}" fill="none" stroke="#2c313d" stroke-width="7" stroke-linecap="round" style="opacity:${evTrackOpacity};"></path>
+            <path d="${gridPathD}" fill="none" stroke="var(--divider-color, #2c313d)" stroke-width="7" stroke-linecap="round"></path>
+            <path d="${solarPathD}" fill="none" stroke="var(--divider-color, #2c313d)" stroke-width="7" stroke-linecap="round"></path>
+            <path d="${battPathD}" fill="none" stroke="var(--divider-color, #2c313d)" stroke-width="7" stroke-linecap="round"></path>
+            <path d="${evPathD}" fill="none" stroke="var(--divider-color, #2c313d)" stroke-width="7" stroke-linecap="round" style="opacity:${evTrackOpacity};"></path>
 
             <!-- flussi animati -->
             <path
@@ -225,7 +225,7 @@ class EnergyFlowCard extends LitElement {
           <!-- nodo rete -->
           <div class="node" style="left:${this._px(40)}%;top:${this._py(
             gridNodeY
-          )}%;background:#182236;border-color:#5b8def;color:#5b8def;">
+          )}%;background:color-mix(in srgb, #5b8def 16%, var(--ha-card-background, var(--card-background-color, transparent)));border-color:#5b8def;color:#5b8def;">
             <svg viewBox="0 0 24 24" class="ico" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2 L17 9 L7 9 Z"></path>
               <line x1="12" y1="9" x2="12" y2="22"></line>
@@ -241,7 +241,7 @@ class EnergyFlowCard extends LitElement {
           <!-- nodo solare -->
           <div class="node" style="left:${this._px(340)}%;top:${this._py(
             45
-          )}%;background:#2a2416;border-color:#f5a623;color:#f5a623;">
+          )}%;background:color-mix(in srgb, #f5a623 16%, var(--ha-card-background, var(--card-background-color, transparent)));border-color:#f5a623;color:#f5a623;">
             <svg viewBox="0 0 24 24" class="ico" style="width:26px;height:26px;" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="5.5" r="2.3"></circle>
               <line x1="12" y1="0.8" x2="12" y2="2.3"></line>
@@ -259,18 +259,18 @@ class EnergyFlowCard extends LitElement {
           <!-- nodo batteria (una o due batterie) -->
           <div class="node" style="left:${this._px(340)}%;top:${this._py(
             105
-          )}%;background:#152819;border-color:${battBorderColor};color:${battColor1};">
+          )}%;background:color-mix(in srgb, ${battBorderColor} 16%, var(--ha-card-background, var(--card-background-color, transparent)));border-color:${battBorderColor};color:${battColor1};">
             ${batt2On
               ? html`
                   <div class="batt-stack">
-                    <svg viewBox="0 5.5 24 13" class="batt-ico-sm" style="color:${battColor1};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="1.5 5.5 20.5 13" class="batt-ico-sm" style="color:${battColor1};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
                       <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
                       <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFill(
                         soc1
                       )}"></rect>
                     </svg>
-                    <svg viewBox="0 5.5 24 13" class="batt-ico-sm" style="color:${battColor2};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="1.5 5.5 20.5 13" class="batt-ico-sm" style="color:${battColor2};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
                       <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
                       <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFill(
@@ -293,7 +293,7 @@ class EnergyFlowCard extends LitElement {
             ? html`
                 <div class="node" style="left:${this._px(40)}%;top:${this._py(
                   105
-                )}%;background:#221a2e;border-color:#c084fc;color:#c084fc;">
+                )}%;background:color-mix(in srgb, #c084fc 16%, var(--ha-card-background, var(--card-background-color, transparent)));border-color:#c084fc;color:#c084fc;">
                   <svg viewBox="0 0 24 24" class="ico" style="width:30px;height:30px;" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="5" y="3" width="9" height="18" rx="1.5"></rect>
                     <path d="M5 21 L14 21"></path>
@@ -342,18 +342,17 @@ class EnergyFlowCard extends LitElement {
   static get styles() {
     return css`
       ha-card {
-        background: #1a1d24;
-        border-radius: 18px;
         padding: 16px;
         box-sizing: border-box;
-        color: #eef0f4;
         overflow: hidden;
+        /* sfondo, bordo, raggio e colore testo ereditati dal tema HA
+           come le card native (ha-card definisce gia' i propri default) */
       }
       .card-title {
         font-size: 15px;
         font-weight: 700;
         margin-bottom: 10px;
-        color: #eef0f4;
+        color: var(--primary-text-color);
       }
       /* Lo stage mantiene le proporzioni ma scala con la larghezza
          disponibile: cosi' i nodi restano allineati su qualsiasi schermo. */
@@ -396,13 +395,13 @@ class EnergyFlowCard extends LitElement {
         line-height: 0;
       }
       .batt-ico-sm {
-        width: 26px;
+        width: 22px;
         height: 14px;
       }
       .label {
         position: absolute;
         transform: translate(-50%, -50%);
-        background: #1a1d24;
+        background: var(--ha-card-background, var(--card-background-color, #1a1d24));
         padding: 1px 6px;
         border-radius: 8px;
         font-size: 11px;
@@ -416,12 +415,14 @@ class EnergyFlowCard extends LitElement {
         flex-direction: column;
         align-items: center;
         gap: 1px;
-        background: #22262e;
+        background: var(--secondary-background-color, #22262e);
         border-radius: 50%;
         width: 52px;
         height: 52px;
         justify-content: center;
-        box-shadow: 0 0 0 4px #1a1d24, 0 0 0 5px #3a3f4a;
+        box-shadow: 0 0 0 4px
+            var(--ha-card-background, var(--card-background-color, #1a1d24)),
+          0 0 0 5px var(--divider-color, #3a3f4a);
       }
       .home-emoji {
         font-size: 13px;
@@ -429,7 +430,7 @@ class EnergyFlowCard extends LitElement {
       .home-val {
         font-size: 11px;
         font-weight: 800;
-        color: #fff;
+        color: var(--primary-text-color, #fff);
       }
       @keyframes eflow {
         to {

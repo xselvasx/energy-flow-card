@@ -86,6 +86,10 @@ MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
 
+### v1.6.0
+- Lo sfondo della card ora eredita lo stile del tema di Home Assistant (chiaro/scuro) come le card native, tramite le variabili CSS del tema.
+- Icone della doppia batteria centrate anche orizzontalmente.
+
 ### v1.5.1
 - Le due icone della batteria sono ora piu' vicine al centro del cerchio (viewBox ritagliato per eliminare lo spazio verticale vuoto).
 
