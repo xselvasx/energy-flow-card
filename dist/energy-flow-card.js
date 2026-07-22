@@ -527,7 +527,6 @@ class EnergyFlowCardEditor extends LitElement {
           Il divisore per singola entita' e' opzionale: se vuoto usa quello
           globale.
         </div>
-
         <div class="section">Flussi energia</div>
         ${this._entityRow("Potenza rete", "grid_power_entity", "grid_power_divider")}
         ${this._entityRow("Potenza fotovoltaico", "solar_power_entity", "solar_power_divider")}
