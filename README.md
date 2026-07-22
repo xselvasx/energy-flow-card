@@ -86,6 +86,9 @@ MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
 
+### v1.5.1
+- Le due icone della batteria sono ora piu' vicine al centro del cerchio (viewBox ritagliato per eliminare lo spazio verticale vuoto).
+
 ### v1.5.0
 - Seconda batteria opzionale: abilitabile da selettore, con entita' di potenza e SoC dedicate e relativa scalatura.
 - Due icone impilate nel cerchio batteria, ciascuna colorata secondo il proprio stato di carica.

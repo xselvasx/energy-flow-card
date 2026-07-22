@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.5.0";
+const CARD_VERSION = "1.5.1";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -263,14 +263,14 @@ class EnergyFlowCard extends LitElement {
             ${batt2On
               ? html`
                   <div class="batt-stack">
-                    <svg viewBox="0 0 24 24" class="batt-ico-sm" style="color:${battColor1};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 5.5 24 13" class="batt-ico-sm" style="color:${battColor1};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
                       <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
                       <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFill(
                         soc1
                       )}"></rect>
                     </svg>
-                    <svg viewBox="0 0 24 24" class="batt-ico-sm" style="color:${battColor2};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 5.5 24 13" class="batt-ico-sm" style="color:${battColor2};" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                       <rect x="2" y="7" width="17" height="10" rx="1.5"></rect>
                       <rect x="19.5" y="10" width="2" height="4" rx="0.6" fill="currentColor" stroke="none"></rect>
                       <rect x="4" y="9" height="6" fill="currentColor" stroke="none" width="${battFill(
@@ -392,12 +392,12 @@ class EnergyFlowCard extends LitElement {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 1px;
+        gap: 3px;
         line-height: 0;
       }
       .batt-ico-sm {
-        width: 22px;
-        height: 22px;
+        width: 26px;
+        height: 14px;
       }
       .label {
         position: absolute;
