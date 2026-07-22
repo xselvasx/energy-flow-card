@@ -86,6 +86,9 @@ MIT — vedi [LICENSE](LICENSE).
 
 ## Changelog
 
+### v1.6.1
+- Corretto lo sfondo della card che restava opaco invece di ereditare l'effetto vetro/traslucido dei temi che lo applicano tramite `backdrop-filter`: le variabili di stile di `ha-card` (sfondo, bordo, ombra, backdrop-filter) vengono ora ridichiarate esplicitamente, perche' le regole CSS globali del tema non attraversano lo shadow DOM della card.
+
 ### v1.6.0
 - Lo sfondo della card ora eredita lo stile del tema di Home Assistant (chiaro/scuro) come le card native, tramite le variabili CSS del tema.
 - Icone della doppia batteria centrate anche orizzontalmente.

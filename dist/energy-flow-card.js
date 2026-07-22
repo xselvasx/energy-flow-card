@@ -14,7 +14,7 @@ const LitElement = Object.getPrototypeOf(
 const html = LitElement.prototype.html;
 const css = LitElement.prototype.css;
 
-const CARD_VERSION = "1.6.0";
+const CARD_VERSION = "1.6.1";
 
 console.info(
   `%c ENERGY-FLOW-CARD %c v${CARD_VERSION} `,
@@ -345,8 +345,20 @@ class EnergyFlowCard extends LitElement {
         padding: 16px;
         box-sizing: border-box;
         overflow: hidden;
-        /* sfondo, bordo, raggio e colore testo ereditati dal tema HA
-           come le card native (ha-card definisce gia' i propri default) */
+        /* Il custom element <ha-card> vive dentro lo shadow DOM di questa
+           card: le regole CSS globali che il tema applica a "ha-card" (es.
+           l'effetto vetro con backdrop-filter) non attraversano il confine
+           dello shadow root, quindi le ridichiariamo qui a partire dalle
+           stesse custom property del tema (quelle si ereditano regolarmente). */
+        background: var(--ha-card-background, var(--card-background-color, white));
+        border-radius: var(--ha-card-border-radius, 12px);
+        border-style: solid;
+        border-width: var(--ha-card-border-width, 1px);
+        border-color: var(--ha-card-border-color, var(--divider-color, #e0e0e0));
+        box-shadow: var(--ha-card-box-shadow, none);
+        backdrop-filter: var(--ha-card-backdrop-filter, none);
+        -webkit-backdrop-filter: var(--ha-card-backdrop-filter, none);
+        color: var(--primary-text-color);
       }
       .card-title {
         font-size: 15px;
